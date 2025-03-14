@@ -2,7 +2,7 @@
 TaskFlow is a simple and efficient assignment management system designed to streamline task tracking and delegation. It allows users to create, assign, and monitor tasks with relevant details such as name, due date, description, status, and involved personnel. The system supports role-based access, ensuring that only authorized users can modify tasks while assigned users can update task statuses.
 
 ## Agile Planning
-1. Project Overview
+## Project Overview
 Project Name: TaskFlow – Assignment Management System
 Objective: Build a task management system using Python, SQLite3, and Tkinter, with role-based access control for task assignment and tracking.
 
