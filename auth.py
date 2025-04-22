@@ -70,7 +70,7 @@ def show_login_page(root):
         if result:
             role = result[0]
             if role == "Admin":
-                display_admin(root, username)
+                display_admin(root, username,show_main_page)
             else:
                 display_user(root, username)
         else:

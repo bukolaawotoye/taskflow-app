@@ -2,14 +2,17 @@ import tkinter
 import sqlite3
 from utils import clear_window
 
-def display_admin(root, name):
+def display_admin(root, name, show_main_page_callback):
     clear_window(root)
     root.title(f"Welcome Admin: {name}")
-    tkinter.Button(root, text="Create Task", command=lambda: create_task(root, name)).pack()
-    tkinter.Button(root, text="Delete Task", command=lambda: delete_task(root, name)).pack()
-    tkinter.Button(root, text="View All Tasks", command=lambda: view_all_tasks(root, name)).pack()
 
-def create_task(root, name):
+    tkinter.Label(root, text=f"Logged in as: {name}").pack(pady=5)
+    tkinter.Button(root, text="Create Task", command=lambda: create_task(root, name, show_main_page_callback)).pack()
+    tkinter.Button(root, text="Delete Task", command=lambda: delete_task(root, name, show_main_page_callback)).pack()
+    tkinter.Button(root, text="View All Tasks", command=lambda: view_all_tasks(root, name, show_main_page_callback)).pack()
+    tkinter.Button(root, text="Logout", command=lambda: show_main_page_callback(root)).pack(pady=10)
+
+def create_task(root, name, show_main_page_callback):
     clear_window(root)
     root.title("Create Task")
 
@@ -53,9 +56,9 @@ def create_task(root, name):
             tkinter.Label(root, text="All fields and at least one user are required!", fg="red").pack()
 
     tkinter.Button(root, text="Save", command=save_task).pack()
-    tkinter.Button(root, text="Back", command=lambda: display_admin(root, name)).pack()
+    tkinter.Button(root, text="Back", command=lambda: display_admin(root, name, show_main_page_callback)).pack()
 
-def delete_task(root, name):
+def delete_task(root, name, show_main_page_callback):
     clear_window(root)
     root.title("Delete Task")
 
@@ -76,13 +79,14 @@ def delete_task(root, name):
             tkinter.Label(root, text="Task ID required", fg="red").pack()
 
     tkinter.Button(root, text="Delete", command=perform_delete).pack()
-    tkinter.Button(root, text="Back", command=lambda: display_admin(root, name)).pack()
+    tkinter.Button(root, text="Back", command=lambda: display_admin(root, name, show_main_page_callback)).pack()
 
-def view_all_tasks(root, name):
+def view_all_tasks(root, name, show_main_page_callback):
     clear_window(root)
     root.title("All Tasks Overview")
     table_frame = tkinter.Frame(root)
     table_frame.pack(pady=10)
+
     headers = ["Task Name", "Status", "Assigned To"]
     for i, h in enumerate(headers):
         tkinter.Label(table_frame, text=h, borderwidth=2, relief="groove", width=30, bg="#cce6ff", font=("Arial", 10, "bold")).grid(row=0, column=i)
@@ -93,6 +97,7 @@ def view_all_tasks(root, name):
         c.execute("CREATE TABLE IF NOT EXISTS task_assignments (task_id INTEGER, username TEXT)")
         c.execute("SELECT * FROM tasks")
         tasks = c.fetchall()
+
         for row_idx, task in enumerate(tasks, start=1):
             task_id, task_name, _ = task
             c.execute("SELECT username FROM task_assignments WHERE task_id = ?", (task_id,))
@@ -103,4 +108,4 @@ def view_all_tasks(root, name):
             tkinter.Label(table_frame, text=status, borderwidth=1, relief="solid", width=30).grid(row=row_idx, column=1)
             tkinter.Label(table_frame, text=assignee_list, borderwidth=1, relief="solid", width=30).grid(row=row_idx, column=2)
 
-    tkinter.Button(root, text="Back", command=lambda: display_admin(root, name)).pack(pady=10)
+    tkinter.Button(root, text="Back", command=lambda: display_admin(root, name, show_main_page_callback)).pack(pady=10)
