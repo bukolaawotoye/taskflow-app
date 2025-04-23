@@ -8,7 +8,7 @@ def restart_app():
     root.destroy()
     os.execl(sys.executable, sys.executable, *sys.argv)
 
-def display_user(root, name):
+def display_user(root, name, show_main_page_callback):
     clear_window(root)
     root.title(f"Welcome {name}")
     tkinter.Label(root, text="Your Assigned Tasks").pack(pady=5)
@@ -37,7 +37,7 @@ def display_user(root, name):
                 tkinter.Label(frame, text=f"{task_name}: {task_desc}", font=("Arial", 10, "bold")).pack(anchor="w")
 
                 status_var = tkinter.StringVar(value=current_status)
-                dropdown = tkinter.OptionMenu(frame, status_var, "Incomplete", "Working On It", "Completed")
+                dropdown = tkinter.OptionMenu(frame, status_var, "Incomplete", "In Progress", "Completed")
                 dropdown.pack(anchor="w")
 
                 def update_status(tid=task_id, sv=status_var):
@@ -49,8 +49,8 @@ def display_user(root, name):
 
                 tkinter.Button(frame, text="Update Status", command=update_status).pack(anchor="w")
 
-    # Simple logout (destroys the app window)
-    tkinter.Button(root, text="Logout", command=root.destroy).pack(pady=10)
+    # Simple logout 
+    tkinter.Button(root, text="Logout", command=lambda: show_main_page_callback(root)).pack(pady=10)
 
     # OR, use this line if you want it to restart:
     # tkinter.Button(root, text="Logout", command=restart_app).pack(pady=10)

@@ -72,7 +72,7 @@ def show_login_page(root):
             if role == "Admin":
                 display_admin(root, username,show_main_page)
             else:
-                display_user(root, username)
+                display_user(root, username,show_main_page)
         else:
             tkinter.Label(root, text="Invalid credentials", fg="red").pack()
 
