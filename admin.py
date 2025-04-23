@@ -62,24 +62,33 @@ def delete_task(root, name, show_main_page_callback):
     clear_window(root)
     root.title("Delete Task")
 
-    tkinter.Label(root, text="Enter Task ID to Delete").pack()
-    task_id_entry = tkinter.Entry(root)
-    task_id_entry.pack()
+    with sqlite3.connect('tasks.db') as conn:
+        c = conn.cursor()
+        c.execute("CREATE TABLE IF NOT EXISTS tasks (task_id INTEGER PRIMARY KEY AUTOINCREMENT, task_name TEXT, task_description TEXT, due_date TEXT)")
+        c.execute("SELECT task_id, task_name, task_description FROM tasks")
+        tasks = c.fetchall()
 
-    def perform_delete():
-        task_id = task_id_entry.get()
-        if task_id:
-            with sqlite3.connect('tasks.db') as conn:
-                c = conn.cursor()
-                c.execute("DELETE FROM tasks WHERE task_id = ?", (task_id,))
-                c.execute("DELETE FROM task_assignments WHERE task_id = ?", (task_id,))
-                conn.commit()
-            tkinter.Label(root, text="Task deleted!", fg="green").pack()
-        else:
-            tkinter.Label(root, text="Task ID required", fg="red").pack()
+    if not tasks:
+        tkinter.Label(root, text="No tasks to delete.").pack(pady=10)
+    else:
+        for task_id, task_name, task_desc in tasks:
+            frame = tkinter.Frame(root, pady=5)
+            frame.pack(fill="x", padx=10)
+            tkinter.Label(frame, text=f"{task_name} - {task_desc}", anchor="w").pack(side="left", fill="x", expand=True)
 
-    tkinter.Button(root, text="Delete", command=perform_delete).pack()
-    tkinter.Button(root, text="Back", command=lambda: display_admin(root, name, show_main_page_callback)).pack()
+            def make_delete_func(tid=task_id):
+                def delete_this_task():
+                    with sqlite3.connect('tasks.db') as conn:
+                        c = conn.cursor()
+                        c.execute("DELETE FROM tasks WHERE task_id = ?", (tid,))
+                        c.execute("DELETE FROM task_assignments WHERE task_id = ?", (tid,))
+                        conn.commit()
+                    delete_task(root, name, show_main_page_callback)  # Refresh list after delete
+                return delete_this_task
+
+            tkinter.Button(frame, text="Delete", fg="red", command=make_delete_func()).pack(side="right")
+
+    tkinter.Button(root, text="Back", command=lambda: display_admin(root, name, show_main_page_callback)).pack(pady=10)
 
 def view_all_tasks(root, name, show_main_page_callback):
     clear_window(root)
