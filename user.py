@@ -16,41 +16,50 @@ def display_user(root, name, show_main_page_callback):
     with sqlite3.connect('tasks.db') as conn:
         c = conn.cursor()
 
-        # Add status column if not already present
-        try:
-            c.execute("ALTER TABLE task_assignments ADD COLUMN status TEXT DEFAULT 'Incomplete'")
-        except sqlite3.OperationalError:
-            pass
-
-        c.execute("CREATE TABLE IF NOT EXISTS tasks (task_id INTEGER PRIMARY KEY AUTOINCREMENT, task_name TEXT, task_description TEXT)")
-        c.execute("SELECT task_id, status FROM task_assignments WHERE username = ?", (name,))
+        # Fetch task details, including due_date and status
+        query = """
+        SELECT tasks.task_name, tasks.task_description, tasks.due_date, task_assignments.status 
+        FROM task_assignments 
+        JOIN tasks ON task_assignments.task_id = tasks.task_id 
+        WHERE task_assignments.username = ?;
+        """
+        c.execute(query, (name,))
         task_info = c.fetchall()
 
-        for task_id, current_status in task_info:
-            c.execute("SELECT task_name, task_description FROM tasks WHERE task_id = ?", (task_id,))
-            task = c.fetchone()
-            if task:
-                frame = tkinter.Frame(root, relief="ridge", borderwidth=2, padx=10, pady=10)
-                frame.pack(pady=5, fill="x", padx=10)
+        for task_name, task_desc, due_date, current_status in task_info:
+            frame = tkinter.Frame(root, relief="ridge", borderwidth=2, padx=10, pady=10)
+            frame.pack(pady=5, fill="x", padx=10)
 
-                task_name, task_desc = task
-                tkinter.Label(frame, text=f"{task_name}: {task_desc}", font=("Arial", 10, "bold")).pack(anchor="w")
+            # Display task name, description, and due date
+            label_text = f"{task_name}: {task_desc}\nDue Date: {due_date}"
+            task_label = tkinter.Label(frame, text=label_text, font=("Arial", 10, "bold"))
+            task_label.pack(anchor="w")
 
-                status_var = tkinter.StringVar(value=current_status)
-                dropdown = tkinter.OptionMenu(frame, status_var, "Incomplete", "In Progress", "Completed")
-                dropdown.pack(anchor="w")
+            # Apply strikethrough if status is "Completed"
+            if current_status == "Completed":
+                task_label.config(font=("Arial", 10, "bold", "italic"), fg="gray")
+            
+            # Status dropdown menu
+            status_var = tkinter.StringVar(value=current_status)
+            dropdown = tkinter.OptionMenu(frame, status_var, "Incomplete", "In Progress", "Completed")
+            dropdown.pack(anchor="w")
 
-                def update_status(tid=task_id, sv=status_var):
-                    with sqlite3.connect('tasks.db') as conn2:
-                        cur = conn2.cursor()
-                        cur.execute("UPDATE task_assignments SET status = ? WHERE task_id = ? AND username = ?", (sv.get(), tid, name))
-                        conn2.commit()
-                        tkinter.Label(frame, text="Status updated!", fg="green").pack(anchor="w")
+            # Update status function specific to this task and label
+            def update_status(sv=status_var, label=task_label):
+                with sqlite3.connect('tasks.db') as conn2:
+                    cur = conn2.cursor()
+                    cur.execute("UPDATE task_assignments SET status = ? WHERE task_id = (SELECT task_id FROM tasks WHERE task_name = ? AND task_description = ?) AND username = ?",
+                                (sv.get(), task_name, task_desc, name))
+                    conn2.commit()
 
-                tkinter.Button(frame, text="Update Status", command=update_status).pack(anchor="w")
+                # Apply or remove strikethrough based on updated status
+                if sv.get() == "Completed":
+                    label.config(font=("Arial", 10, "bold", "italic"), fg="gray")
+                else:
+                    label.config(font=("Arial", 10, "bold"), fg="black")
 
-    # Simple logout 
-    tkinter.Button(root, text="Logout", command=lambda: show_main_page_callback(root)).pack(pady=10)
+                tkinter.Label(frame, text="Status updated!", fg="green").pack(anchor="w")
 
-    # OR, use this line if you want it to restart:
-    # tkinter.Button(root, text="Logout", command=restart_app).pack(pady=10)
+            tkinter.Button(frame, text="Update Status", command=update_status).pack(anchor="w")
+        tkinter.Button(root, text="Logout", command=lambda: show_main_page_callback(root)).pack(pady=10)
+
