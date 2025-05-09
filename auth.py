@@ -4,7 +4,6 @@ import sqlite3
 from admin import display_admin
 from user import display_user
 from utils import clear_window
-from PIL import Image, ImageTk
 
 def add_hover_effect(button):
     def on_enter(e): button.configure(style="Hover.TButton")
@@ -12,35 +11,38 @@ def add_hover_effect(button):
     button.bind("<Enter>", on_enter)
     button.bind("<Leave>", on_leave)
 
-def set_background(root, image_path):
-    bg_img = Image.open(image_path)
-    bg_img = bg_img.resize((root.winfo_screenwidth(), root.winfo_screenheight()))
-    bg = ImageTk.PhotoImage(bg_img)
-    label = tk.Label(root, image=bg)
-    label.image = bg
-    label.place(x=0, y=0, relwidth=1, relheight=1)
-
 def show_main_page(root):
     clear_window(root)
     root.title("Task Manager")
-    set_background(root, "assets/gridpaper.jpg")
+    root.configure(bg="#e6f0f5")  # Soft pastel blue
 
     style = ttk.Style()
-    style.configure("Card.TFrame", background="#ffffff", padding=40)
-    style.configure("TButton", font=("Comic Sans MS", 12, "bold"), padding=10)
-    style.configure("Hover.TButton", font=("Comic Sans MS", 12, "bold"), padding=10, background="#f0f8ff")
+    style.configure("TButton", font=("Verdana", 13, "bold"), padding=10)
+    style.configure("Hover.TButton", font=("Verdana", 13, "bold"), padding=10, background="#d0e0ea")
 
-    container = ttk.Frame(root, style="Card.TFrame")
+    container = ttk.Frame(root)
     container.place(relx=0.5, rely=0.5, anchor="center")
 
+    # Title Label
     title = ttk.Label(
         root,
-        text="📒 Welcome to TaskFlow!",
-        font=("Segoe Print", 28, "bold"),
-        background="#ffffff"
+        text="Welcome to TaskFlow!",
+        font=("Verdana", 30, "bold"),
+        background="#e6f0f5"
     )
     title.place(relx=0.5, rely=0.25, anchor="center")
 
+    # Wiggle animation using relx offset
+    def wiggle_label(label, relx=0.5, direction=1):
+        offset = 0.003 * direction  # Smaller wiggle (in relative coords)
+        new_relx = relx + offset
+        label.place(relx=new_relx, rely=0.25, anchor="center")
+        label.after(200, lambda: wiggle_label(label, relx, -direction))  
+
+    # Start animation
+    wiggle_label(title)
+
+    # Buttons
     login_btn = ttk.Button(container, text="Login", width=30, command=lambda: show_login_page(root))
     login_btn.pack(pady=10)
     add_hover_effect(login_btn)
@@ -52,65 +54,85 @@ def show_main_page(root):
 def show_signup_page(root):
     clear_window(root)
     root.title("Sign Up Page")
-    set_background(root, "assets/gridpaper.jpg")
+    root.configure(bg="#e6f0f5")
+
+    style = ttk.Style()
+    style.configure("TButton", font=("Verdana", 13, "bold"), padding=10)
+    style.configure("Hover.TButton", font=("Verdana", 13, "bold"), padding=10, background="#d0e0ea")
 
     container = ttk.Frame(root)
     container.place(relx=0.5, rely=0.5, anchor="center")
 
-    ttk.Label(container, text="✍️ Create Your Account", font=("Segoe Print", 20, "bold"), background="#ffffff").pack(pady=(0, 10))
+    ttk.Label(container, text="Create Your Account", font=("Verdana", 20, "bold"), background="#e6f0f5").pack(pady=(0, 10))
 
-    frame = ttk.Frame(container, style="Card.TFrame")
+    frame = ttk.Frame(container)
     frame.pack()
 
-    ttk.Label(frame, text="Username", font=("Comic Sans MS", 12)).pack(pady=(0, 5))
+    # Username
+    ttk.Label(frame, text="Username", font=("Verdana", 12, "bold"), background="#e6f0f5").pack(pady=(0, 5))
     username_entry = ttk.Entry(frame)
     username_entry.pack()
 
-    ttk.Label(frame, text="Password", font=("Comic Sans MS", 12)).pack(pady=(10, 5))
+    # Password
+    ttk.Label(frame, text="Password", font=("Verdana", 12, "bold"), background="#e6f0f5").pack(pady=(10, 5))
     password_entry = ttk.Entry(frame, show="*")
     password_entry.pack()
 
-    ttk.Label(frame, text="Role", font=("Comic Sans MS", 12)).pack(pady=(10, 5))
-    role_var = tk.StringVar(value="Admin")
-    ttk.Radiobutton(frame, text="Assigning Task", variable=role_var, value="Admin").pack(anchor="w")
-    ttk.Radiobutton(frame, text="Being Assigned Task", variable=role_var, value="User").pack(anchor="w")
+    # Role Selection (use tk.Radiobutton for background support)
+    ttk.Label(frame, text="Select Your Role", font=("Verdana", 12, "bold"), background="#e6f0f5").pack(pady=(10, 5))
+    role_var = tk.StringVar(value="User")  # Default to User
+
+    tk.Radiobutton(frame, text="Admin", variable=role_var, value="Admin", bg="#e6f0f5", font=("Verdana", 11, "bold")).pack(pady=(10, 5))
+    tk.Radiobutton(frame, text="User", variable=role_var, value="User", bg="#e6f0f5", font=("Verdana", 11, "bold")).pack(pady=(10, 5))
 
     def register_user():
-        username = username_entry.get()
-        password = password_entry.get()
+        username = username_entry.get().strip()
+        password = password_entry.get().strip()
         role = role_var.get()
+
         if username and password:
             with sqlite3.connect('userData.db') as conn:
                 c = conn.cursor()
                 c.execute("CREATE TABLE IF NOT EXISTS users (username TEXT, password TEXT, role TEXT)")
                 c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", (username, password, role))
                 conn.commit()
-            messagebox.showinfo("Success", "User registered successfully!")
+
+                # Debug: print all users
+                c.execute("SELECT username, role FROM users")
+                print("Users in DB:", c.fetchall())
+
+            messagebox.showinfo("Success", f"{role} account created for {username}!")
             show_login_page(root)
         else:
             messagebox.showerror("Error", "All fields are required!")
 
     ttk.Button(frame, text="Register", command=register_user).pack(pady=(10, 5))
-    ttk.Button(frame, text="Back", command=lambda: show_main_page(root)).pack()
+
+    # Back to login
+    ttk.Button(frame, text="⬅️ Back to Login", command=lambda: show_login_page(root)).pack()
 
 def show_login_page(root):
     clear_window(root)
     root.title("Login Page")
-    set_background(root, "assets/gridpaper.jpg")
+    root.configure(bg="#e6f0f5")
+
+    style = ttk.Style()
+    style.configure("TButton", font=("Verdana", 13, "bold"), padding=10)
+    style.configure("Hover.TButton", font=("Verdana", 13, "bold"), padding=10, background="#d0e0ea")
 
     container = ttk.Frame(root)
     container.place(relx=0.5, rely=0.5, anchor="center")
 
-    ttk.Label(container, text="🔐 Login to TaskFlow", font=("Segoe Print", 20, "bold"), background="#ffffff").pack(pady=(0, 10))
+    ttk.Label(container, text="Login to TaskFlow", font=("Verdana", 20, "bold"), background="#e6f0f5").pack(pady=(0, 10))
 
-    frame = ttk.Frame(container, style="Card.TFrame")
+    frame = ttk.Frame(container)
     frame.pack()
 
-    ttk.Label(frame, text="Username", font=("Comic Sans MS", 12)).pack(pady=(0, 5))
+    ttk.Label(frame, text="Username", font=("Verdana", 12, "bold"), background="#e6f0f5").pack(pady=(0, 5))
     username_entry = ttk.Entry(frame)
     username_entry.pack()
 
-    ttk.Label(frame, text="Password", font=("Comic Sans MS", 12)).pack(pady=(10, 5))
+    ttk.Label(frame, text="Password", font=("Verdana", 12, "bold"), background="#e6f0f5").pack(pady=(10, 5))
     password_entry = ttk.Entry(frame, show="*")
     password_entry.pack()
 
