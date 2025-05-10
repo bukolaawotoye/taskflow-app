@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 import sqlite3
 from functools import partial
+from datetime import datetime
+from tkinter import messagebox
 from utils import clear_window
 
 def display_admin(root, name, show_main_page_callback):
@@ -36,28 +38,31 @@ def create_task(root, name, show_main_page_callback):
     style = ttk.Style()
     style.configure("TButton", font=("Verdana", 12, "bold"), padding=10)
 
-    container = ttk.Frame(root)
-    container.place(relx=0.5, rely=0.5, anchor="center")
+    # Main frame to center everything
+    main_frame = ttk.Frame(root)
+    main_frame.place(relx=0.5, rely=0.45, anchor="center")
 
-    # Header
-    ttk.Label(root, text="Create New Task", font=("Verdana", 20, "bold"), background="#e6f0f5").place(relx=0.5, rely=0.1, anchor="center")
+    ttk.Label(main_frame, text="Create New Task", font=("Verdana", 20, "bold"), background="#e6f0f5").pack(pady=(0, 10))
+
+    container = ttk.Frame(main_frame)
+    container.pack()
 
     # Task Name
-    ttk.Label(container, text="Task Name", font=("Verdana", 12, "bold"), background="#e6f0f5").pack()
+    ttk.Label(container, text="Task Name", font=("Verdana", 12), background="#e6f0f5").pack()
     task_name_entry = ttk.Entry(container, width=40)
     task_name_entry.pack()
 
     # Task Description
-    ttk.Label(container, text="Task Description", font=("Verdana", 12, "bold"), background="#e6f0f5").pack(pady=(10, 0))
+    ttk.Label(container, text="Task Description", font=("Verdana", 12), background="#e6f0f5").pack(pady=(10, 0))
     task_description_entry = ttk.Entry(container, width=40)
     task_description_entry.pack()
 
     # Due Date
-    ttk.Label(container, text="Due Date (YYYY-MM-DD)", font=("Verdana", 12, "bold"), background="#e6f0f5").pack(pady=(10, 0))
+    ttk.Label(container, text="Due Date (YYYY-MM-DD)", font=("Verdana", 12), background="#e6f0f5").pack(pady=(10, 0))
     due_date_entry = ttk.Entry(container, width=40)
     due_date_entry.pack()
 
-    # Fetch all users to assign
+    # Assigned users
     with sqlite3.connect('userData.db') as conn:
         c = conn.cursor()
         c.execute("SELECT username FROM users WHERE role = 'User'")
@@ -71,12 +76,19 @@ def create_task(root, name, show_main_page_callback):
         user_vars[user[0]] = var
         ttk.Checkbutton(container, text=user[0].title(), variable=var).pack(anchor="w")
 
-    # Save task
+    # Save Task Logic
     def save_task():
         task_name = task_name_entry.get().strip()
         task_description = task_description_entry.get().strip()
         due_date = due_date_entry.get().strip()
         selected_users = [u for u, var in user_vars.items() if var.get()]
+
+        # Validate date format
+        try:
+            datetime.strptime(due_date, "%Y-%m-%d")
+        except ValueError:
+            messagebox.showerror("Invalid Date", "Please enter the due date in YYYY-MM-DD format.")
+            return
 
         if task_name and task_description and due_date and selected_users:
             with sqlite3.connect('tasks.db') as conn:
@@ -155,15 +167,15 @@ def view_all_tasks(root, name, show_main_page_callback):
         for row_idx, task in enumerate(tasks, start=1):
             task_id, task_name, task_description, due_date = task
 
-            c.execute("SELECT username FROM task_assignments WHERE task_id = ?", (task_id,))
-            assignees = ', '.join([a[0].title() for a in c.fetchall()])
+            c.execute("SELECT username, status FROM task_assignments WHERE task_id = ?", (task_id,))
+            rows = c.fetchall()
+            assignees = ', '.join([r[0].title() for r in rows])
 
-            c.execute("SELECT status FROM task_assignments WHERE task_id = ?", (task_id,))
-            status_rows = c.fetchall()
-
-            if not status_rows:
+            if not rows:
                 status = "Not Started"
-            elif any(row[0] == "Completed" for row in status_rows):
+            elif all(r[1] == "Incomplete" for r in rows):
+                status = "Not Started"
+            elif any(r[1] == "Completed" for r in rows):
                 status = "Completed"
             else:
                 status = "In Progress"
@@ -186,18 +198,22 @@ def view_all_tasks(root, name, show_main_page_callback):
                 font=("Verdana", 10)
             )
             clickable_label.grid(row=row_idx, column=0)
-            clickable_label.bind("<Button-1>", lambda e, tid=task_id: open_task_card(root, tid))
+            clickable_label.bind("<Button-1>", lambda e, tid=task_id: open_task_card(root, tid, name, show_main_page_callback))
 
             ttk.Label(table_container, text=task_description, background="white", borderwidth=1, relief="solid", width=20, font=("Verdana", 10)).grid(row=row_idx, column=1)
             ttk.Label(table_container, text=status, background=status_color[status], borderwidth=1, relief="solid", width=20, font=("Verdana", 10)).grid(row=row_idx, column=2)
             ttk.Label(table_container, text=assignees, background="white", borderwidth=1, relief="solid", width=20, font=("Verdana", 10)).grid(row=row_idx, column=3)
             ttk.Label(table_container, text=due_date, background="white", borderwidth=1, relief="solid", width=20, font=("Verdana", 10)).grid(row=row_idx, column=4)
 
-    ttk.Frame(root, height=30, style="TFrame").pack()  # spacer
+    ttk.Frame(root, height=30, style="TFrame").pack() 
     ttk.Button(root, text="⬅️ Back", command=lambda: display_admin(root, name, show_main_page_callback)).pack(pady=(20, 30), side="bottom")
 
-def open_task_card(root, task_id):
-    """Opens a detailed view of the selected task."""
+
+def open_task_card(root, task_id, name, show_main_page_callback):
+    def refresh_card():
+        detail_win.destroy()
+        open_task_card(root, task_id, name, show_main_page_callback)
+
     detail_win = tk.Toplevel(root)
     detail_win.title("Task Details")
     detail_win.configure(bg="#e6f0f5")
@@ -220,12 +236,9 @@ def open_task_card(root, task_id):
     ttk.Label(info_frame, text=f"Description:\n{task[1]}", font=("Verdana", 12, "bold"), wraplength=400, justify="center").pack(pady=5)
     ttk.Label(info_frame, text=f"Due Date: {task[2]}", font=("Verdana", 12, "bold")).pack(pady=5)
 
-    ttk.Button(detail_win, text="Edit Task", command=lambda: open_task_editor(root, task_id)).pack(pady=10)
+    ttk.Button(detail_win, text="Edit Task", command=lambda: open_task_editor(root, task_id, name, show_main_page_callback, refresh_card)).pack(pady=10)
     ttk.Button(detail_win, text="Close", command=detail_win.destroy).pack()
 
-import tkinter.messagebox as messagebox
-
-import tkinter.messagebox as messagebox
 
 def delete_task(root, name, show_main_page_callback):
     clear_window(root)
@@ -273,12 +286,10 @@ def delete_task(root, name, show_main_page_callback):
 
             ttk.Button(frame, text="❌ Delete", command=make_delete_func()).pack(side="right")
 
-    # Back button outside, bottom centered
     ttk.Button(root, text="⬅️ Back", command=lambda: display_admin(root, name, show_main_page_callback)).place(relx=0.5, rely=0.95, anchor="center")
 
 
-def open_task_editor(root, task_id):
-    """Opens an edit window to modify task details & user assignments."""
+def open_task_editor(root, task_id, name, show_main_page_callback, refresh_callback=None):
     editor = tk.Toplevel(root)
     editor.title("Edit Task")
     editor.configure(bg="#e6f0f5")
@@ -287,7 +298,7 @@ def open_task_editor(root, task_id):
     style = ttk.Style()
     style.configure("TButton", font=("Verdana", 12, "bold"), padding=10)
 
-    ttk.Label(editor, text="Edit Task", font=("Verdana", 20, "bold")).pack
+    ttk.Label(editor, text="Edit Task", font=("Verdana", 20, "bold")).pack()
 
     with sqlite3.connect('tasks.db') as conn:
         c = conn.cursor()
@@ -349,7 +360,9 @@ def open_task_editor(root, task_id):
             conn.commit()
 
         editor.destroy()
-        view_all_tasks(root, "Admin", display_admin)
+        view_all_tasks(root, name, show_main_page_callback)
+        if refresh_callback:
+            refresh_callback()
 
     ttk.Button(editor, text="💾 Save Changes", command=save_edits).pack(pady=15)
     ttk.Button(editor, text="❌ Cancel", command=editor.destroy).pack()
